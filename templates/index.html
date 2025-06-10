@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Text Generator</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; max-width: 700px; margin: auto; }
+    textarea, input, select { width: 100%; margin-top: 0.5em; margin-bottom: 1em; padding: 0.5em; }
+    button { padding: 0.6em 1.2em; }
+    .output { margin-top: 2em; border: 1px solid #ccc; padding: 1em; white-space: pre-wrap; background: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <h1>Generate Description</h1>
+
+  <label for="topic">Topic or Prompt:</label>
+  <textarea id="topic" rows="3" placeholder="Enter a short prompt or question"></textarea>
+
+  <label>Choose length:</label><br>
+  <input type="radio" id="short" name="length" value="short">
+  <label for="short">Short</label>
+  <input type="radio" id="medium" name="length" value="medium" checked>
+  <label for="medium">Medium</label>
+  <input type="radio" id="long" name="length" value="long">
+  <label for="long">Long</label>
+
+  <label for="max_words">Max Words:</label>
+  <input type="number" id="max_words" placeholder="e.g. 120" min="10" max="300" />
+
+  <button onclick="generate()">Generate</button>
+
+  <div class="output" id="outputBox">Generated description will appear here...</div>
+
+  <script>
+    async function generate() {
+      const topic = document.getElementById('topic').value.trim();
+      const length = document.querySelector('input[name="length"]:checked').value;
+      const max_words = document.getElementById('max_words').value.trim();
+
+      if (!topic) {
+        alert("Please enter a topic.");
+        return;
+      }
+
+      document.getElementById('outputBox').innerText = "Generating...";
+
+      const response = await fetch('/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ topic, length, max_words })
+      });
+
+      const data = await response.json();
+      if (data.result) {
+        document.getElementById('outputBox').innerText = data.result;
+      } else {
+        document.getElementById('outputBox').innerText = "Error: " + data.error;
+      }
+    }
+  </script>
+</body>
+</html>
