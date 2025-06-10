@@ -13,21 +13,20 @@ def build_structure_for_word_limit(max_words):
     selected = []
     total = 0
     attempts = 0
-    max_attempts = 500
+    max_attempts = 1500
 
-    # Accept slight overflow if total is very close
-    min_words = int(max_words * 0.85)
+    min_words = int(max_words * 0.9)
 
-    while attempts < max_attempts and len(selected) < 100:
+    while attempts < max_attempts and len(selected) < 200:
         s = random.choice(all_structs)
         sentence_word_count = s[0]
 
         if total + sentence_word_count > max_words:
             if total < min_words:
                 attempts += 1
-                continue  # Try another sentence — we’re too far below
+                continue
             else:
-                break  # Close enough
+                break
         selected.append(s)
         total += sentence_word_count
         attempts += 1
@@ -64,9 +63,9 @@ def generate_description(topic, length_category='medium', max_words=1300):
     else:
         target_word_count = {
             "very_short": 350,
-            "short": 850,
-            "medium": 1300,
-            "long": 1800
+            "short": 950,     # mid of 750–1100
+            "medium": 1350,   # mid of 1000–1700
+            "long": 1950      # mid of 1700–2200
         }.get(length_category, 1300)
         sentence_structures = build_structure_for_word_limit(target_word_count)
 
@@ -89,4 +88,7 @@ def generate_description(topic, length_category='medium', max_words=1300):
     )
 
     logging.info("[OPENAI] Response received")
-    return chat_response.choices[0].message.content.strip()
+    result = chat_response.choices[0].message.content.strip()
+    logging.info(f"[RESULT] Generated description with ~{len(result.split())} words")
+    return result
+
