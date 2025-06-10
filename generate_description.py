@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from template_utils import load_structures
 import random
 import logging
+import math
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -14,7 +15,6 @@ def build_structure_for_word_limit(max_words):
     total = 0
     attempts = 0
     max_attempts = 1500
-
     min_words = int(max_words * 0.9)
 
     while attempts < max_attempts and len(selected) < 200:
@@ -55,39 +55,27 @@ Critical Instructions:
 - Avoid repetition, clichés, or robotic language.
 - If you don’t understand the topic, improvise with authority — never skip.
 
-Your job is to fill this structure with informative, SEO-optimized, natural writing.
-
 Now write the description.
-    """.strip()
+""".strip()
 
+def calculate_chunks(total_words, per_chunk_limit=1000):
+    chunks = math.ceil(total_words / per_chunk_limit)
+    base = total_words // chunks
+    remainder = total_words % chunks
+    return [base + (1 if i < remainder else 0) for i in range(chunks)]
 
-def generate_description(topic, length_category='medium', max_words=1300):
-    logging.info(f"[GENERATION] Preparing description for topic: '{topic}' with length: '{length_category}' and max_words: {max_words}")
-
-    if length_category == 'custom':
-        sentence_structures = build_structure_for_word_limit(max_words)
-    else:
-        target_word_count = {
-            "very_short": 350,
-            "short": 950,     # mid of 750–1100
-            "medium": 1350,   # mid of 1000–1700
-            "long": 1950      # mid of 1700–2200
-        }.get(length_category, 1300)
-        sentence_structures = build_structure_for_word_limit(target_word_count)
-
+def generate_chunk(topic, word_target):
+    sentence_structures = build_structure_for_word_limit(word_target)
     prompt = build_prompt(topic, sentence_structures)
-
-    approx_tokens = int(max_words * 1.5)
-    if approx_tokens > 4096:
-        approx_tokens = 4096
+    approx_tokens = min(int(word_target * 1.5), 4096)
 
     retries = 3
     result = ""
-    word_count = 0
 
     for attempt in range(1, retries + 1):
-        logging.info(f"[OPENAI] Attempt {attempt} — Sending request...")
-        chat_response = client.chat.completions.create(
+        logging.info(f"[OPENAI] Attempt {attempt} for {word_target} words")
+
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a professional SEO and editorial content writer."},
@@ -97,20 +85,41 @@ def generate_description(topic, length_category='medium', max_words=1300):
             max_tokens=approx_tokens
         )
 
-        result = chat_response.choices[0].message.content.strip()
+        result = response.choices[0].message.content.strip()
         word_count = len(result.split())
 
-        logging.info(f"[OPENAI] Response received — Word count: {word_count}")
+        logging.info(f"[OPENAI] Response length: {word_count} words")
 
-        if word_count >= int(max_words * 0.9):  # accept if at least 90% of max_words
-            logging.info(f"[RESULT] Accepted response on attempt {attempt}")
+        if word_count >= int(word_target * 0.9):
             break
         else:
-            logging.warning(f"[RESULT] Too short — Retrying (attempt {attempt})...")
-
-    if word_count < int(max_words * 0.9):
-        logging.error(f"[RESULT] Failed to meet length after {retries} attempts — returning best attempt")
-
-        logging.info("[RETURN] Sending final result to client.")
+            logging.warning(f"[RESULT] Too short, retrying...")
 
     return result
+
+def generate_description(topic, length_category='medium', max_words=1300):
+    logging.info(f"[GENERATION] Topic: '{topic}' | Length: '{length_category}' | Max Words: {max_words}")
+
+    if length_category == 'custom':
+        word_targets = calculate_chunks(max_words)
+    else:
+        target_word_count = {
+            "very_short": 350,
+            "short": 950,
+            "medium": 1350,
+            "long": 1950
+        }.get(length_category, 1300)
+        word_targets = calculate_chunks(target_word_count)
+
+    logging.info(f"[GENERATION] Split into {len(word_targets)} chunks: {word_targets}")
+
+    all_parts = []
+    for idx, word_target in enumerate(word_targets):
+        logging.info(f"[PART {idx+1}] Generating...")
+        part = generate_chunk(topic, word_target)
+        all_parts.append(part)
+
+    final_output = "\n\n".join(all_parts)
+    total_words = len(final_output.split())
+    logging.info(f"[RESULT] Final length: {total_words} words")
+    return final_output
