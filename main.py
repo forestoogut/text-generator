@@ -1,13 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from generate_description import generate_description
 import logging
+import os
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 @app.route("/")
 def index():
-    return app.send_static_file("index.html")
+    return render_template("index.html")
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -30,6 +31,5 @@ def generate():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
