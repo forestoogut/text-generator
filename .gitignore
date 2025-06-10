@@ -3,4 +3,4 @@ __pycache__/
 *.pyc
 *.log
 descriptions.txt
-generate_description.py
+generate_templates.py

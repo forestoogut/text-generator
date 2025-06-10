@@ -1,8 +1,11 @@
-import openai
-from template_utils import sample_structures
 import os
+from openai import OpenAI
+from dotenv import load_dotenv
+from template_utils import sample_structures
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+load_dotenv()
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def build_prompt(topic, sentence_structures):
     structure_lines = [
@@ -30,7 +33,7 @@ def generate_description(topic, length_category='medium', max_words=120):
 
     approx_tokens = int(max_words * 1.4)
 
-    response = openai.ChatCompletion.create(
+    chat_response = client.chat.completions.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": "You are an expert SEO copywriter."},
@@ -40,4 +43,4 @@ def generate_description(topic, length_category='medium', max_words=120):
         max_tokens=approx_tokens
     )
 
-    return response['choices'][0]['message']['content'].strip()
+    return chat_response.choices[0].message.content.strip()
