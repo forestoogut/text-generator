@@ -12,4 +12,6 @@ RUN pip install --upgrade pip && \
 # Set environment so Flask can run properly
 ENV PYTHONUNBUFFERED=1
 
+EXPOSE 5000
+
 CMD ["python", "main.py"]
