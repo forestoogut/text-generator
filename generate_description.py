@@ -100,26 +100,66 @@ def generate_chunk(topic, word_target):
 def generate_description(topic, length_category='medium', max_words=1300):
     logging.info(f"[GENERATION] Topic: '{topic}' | Length: '{length_category}' | Max Words: {max_words}")
 
-    if length_category == 'custom':
-        word_targets = calculate_chunks(max_words)
-    else:
-        target_word_count = {
+    if length_category != 'custom':
+        max_words = {
             "very_short": 350,
             "short": 950,
             "medium": 1350,
             "long": 1950
         }.get(length_category, 1300)
-        word_targets = calculate_chunks(target_word_count)
 
-    logging.info(f"[GENERATION] Split into {len(word_targets)} chunks: {word_targets}")
+    # Split into chunks of up to ~1000 words each
+    chunk_size = 1100  # chunk cap — still well under GPT-4 token limits
+    num_chunks = max(1, math.ceil(max_words / chunk_size))
+    target_per_chunk = math.ceil(max_words / num_chunks)
+    logging.info(f"[GENERATION] Split into {num_chunks} chunks: {[target_per_chunk] * num_chunks}")
 
-    all_parts = []
-    for idx, word_target in enumerate(word_targets):
-        logging.info(f"[PART {idx+1}] Generating...")
-        part = generate_chunk(topic, word_target)
-        all_parts.append(part)
+    final_result = []
+    for chunk_index in range(num_chunks):
+        logging.info(f"[PART {chunk_index+1}] Generating...")
 
-    final_output = "\n\n".join(all_parts)
-    total_words = len(final_output.split())
-    logging.info(f"[RESULT] Final length: {total_words} words")
-    return final_output
+        sentence_structures = build_structure_for_word_limit(target_per_chunk)
+        prompt = build_prompt(topic, sentence_structures)
+
+        approx_tokens = int(target_per_chunk * 1.6)
+        if approx_tokens > 4096:
+            approx_tokens = 4096
+
+        retries = 3
+        best_result = ""
+        best_word_count = 0
+
+        for attempt in range(1, retries + 1):
+            logging.info(f"[OPENAI] Attempt {attempt} for {target_per_chunk} words")
+
+            chat_response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a professional SEO and editorial content writer."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.85,
+                max_tokens=approx_tokens
+            )
+
+            chunk_result = chat_response.choices[0].message.content.strip()
+            word_count = len(chunk_result.split())
+            logging.info(f"[OPENAI] Response length: {word_count} words")
+
+            if word_count > best_word_count:
+                best_result = chunk_result
+                best_word_count = word_count
+
+            if word_count >= int(target_per_chunk * 0.9):
+                logging.info(f"[RESULT] Accepted chunk on attempt {attempt}")
+                break
+            else:
+                logging.warning(f"[RESULT] Too short, retrying...")
+
+        final_result.append(best_result)
+
+    full_text = "\n\n".join(final_result)
+    logging.info(f"[RESULT] Final length: {len(full_text.split())} words")
+    logging.info("[SUCCESS] Description generated.")
+    return full_text
+
