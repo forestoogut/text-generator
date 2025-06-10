@@ -2,7 +2,7 @@ import json
 import random
 from pathlib import Path
 
-TEMPLATE_FILE = Path("D:/CryptoGamble/text-editor/templates.json")
+TEMPLATE_FILE = Path(__file__).parent / "templates.json"
 
 def load_sentence_pool():
     with open(TEMPLATE_FILE, 'r', encoding='utf-8') as f:
