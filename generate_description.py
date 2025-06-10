@@ -41,19 +41,25 @@ def build_prompt(topic, sentence_structures):
     ]
 
     return f"""
-You are a skilled, professional long-form content writer.
+You are a skilled, professional SEO writer. Your goal is to generate a high-quality, human-sounding description about the topic: "{topic}".
 
-Your task is to write a high-quality SEO-optimized description on the topic: "{topic}".
-
-Requirements:
-- Use exactly {len(sentence_structures)} sentences.
-- Match the structure of each sentence as follows:
+You MUST follow this exact structure:
+- Write exactly {len(sentence_structures)} sentences.
+- Match each sentence to its exact word count and punctuation from the list below:
 {chr(10).join(structure_lines)}
-- Group the sentences into coherent paragraphs.
-- Do not summarize. Expand every idea with depth and clarity.
-- Avoid clichés, overly formal tone, or excessive keyword stuffing.
-- Prioritize clarity, precision, and natural human-like flow.
+
+Critical Instructions:
+- You are NOT allowed to shorten or skip any sentence.
+- You MUST expand your ideas enough to fully use each sentence’s word count.
+- The description should be grouped into paragraphs naturally.
+- Avoid repetition, clichés, or robotic language.
+- If you don’t understand the topic, improvise with authority — never skip.
+
+Your job is to fill this structure with informative, SEO-optimized, natural writing.
+
+Now write the description.
     """.strip()
+
 
 def generate_description(topic, length_category='medium', max_words=1300):
     logging.info(f"[GENERATION] Preparing description for topic: '{topic}' with length: '{length_category}' and max_words: {max_words}")
@@ -87,8 +93,35 @@ def generate_description(topic, length_category='medium', max_words=1300):
         max_tokens=approx_tokens
     )
 
-    logging.info("[OPENAI] Response received")
+retries = 3
+result = ""
+word_count = 0
+
+for attempt in range(1, retries + 1):
+    logging.info(f"[OPENAI] Attempt {attempt} — Sending request...")
+    chat_response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are a professional SEO and editorial content writer."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.85,
+        max_tokens=approx_tokens
+    )
+
     result = chat_response.choices[0].message.content.strip()
-    logging.info(f"[RESULT] Generated description with ~{len(result.split())} words")
-    return result
+    word_count = len(result.split())
+
+    logging.info(f"[OPENAI] Response received — Word count: {word_count}")
+
+    if word_count >= int(max_words * 0.9):  # accept if at least 90% of max_words
+        logging.info(f"[RESULT] Accepted response on attempt {attempt}")
+        break
+    else:
+        logging.warning(f"[RESULT] Too short — Retrying (attempt {attempt})...")
+
+if word_count < int(max_words * 0.9):
+    logging.error(f"[RESULT] Failed to meet length after {retries} attempts — returning best attempt")
+
+return result
 
