@@ -81,18 +81,6 @@ def generate_description(topic, length_category='medium', max_words=1300):
     if approx_tokens > 4096:
         approx_tokens = 4096
 
-    logging.info(f"[OPENAI] Sending request with {len(sentence_structures)} structured sentences")
-
-    chat_response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a professional SEO and editorial content writer."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.85,
-        max_tokens=approx_tokens
-    )
-
     retries = 3
     result = ""
     word_count = 0
@@ -122,5 +110,7 @@ def generate_description(topic, length_category='medium', max_words=1300):
 
     if word_count < int(max_words * 0.9):
         logging.error(f"[RESULT] Failed to meet length after {retries} attempts — returning best attempt")
+
+        logging.info("[RETURN] Sending final result to client.")
 
     return result
