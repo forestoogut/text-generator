@@ -93,35 +93,34 @@ def generate_description(topic, length_category='medium', max_words=1300):
         max_tokens=approx_tokens
     )
 
-retries = 3
-result = ""
-word_count = 0
+    retries = 3
+    result = ""
+    word_count = 0
 
-for attempt in range(1, retries + 1):
-    logging.info(f"[OPENAI] Attempt {attempt} — Sending request...")
-    chat_response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a professional SEO and editorial content writer."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.85,
-        max_tokens=approx_tokens
-    )
+    for attempt in range(1, retries + 1):
+        logging.info(f"[OPENAI] Attempt {attempt} — Sending request...")
+        chat_response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a professional SEO and editorial content writer."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.85,
+            max_tokens=approx_tokens
+        )
 
-    result = chat_response.choices[0].message.content.strip()
-    word_count = len(result.split())
+        result = chat_response.choices[0].message.content.strip()
+        word_count = len(result.split())
 
-    logging.info(f"[OPENAI] Response received — Word count: {word_count}")
+        logging.info(f"[OPENAI] Response received — Word count: {word_count}")
 
-    if word_count >= int(max_words * 0.9):  # accept if at least 90% of max_words
-        logging.info(f"[RESULT] Accepted response on attempt {attempt}")
-        break
-    else:
-        logging.warning(f"[RESULT] Too short — Retrying (attempt {attempt})...")
+        if word_count >= int(max_words * 0.9):  # accept if at least 90% of max_words
+            logging.info(f"[RESULT] Accepted response on attempt {attempt}")
+            break
+        else:
+            logging.warning(f"[RESULT] Too short — Retrying (attempt {attempt})...")
 
-if word_count < int(max_words * 0.9):
-    logging.error(f"[RESULT] Failed to meet length after {retries} attempts — returning best attempt")
+    if word_count < int(max_words * 0.9):
+        logging.error(f"[RESULT] Failed to meet length after {retries} attempts — returning best attempt")
 
-return result
-
+    return result
