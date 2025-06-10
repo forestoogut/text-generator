@@ -3,6 +3,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from template_utils import load_structures
 import random
+import logging
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -11,13 +12,27 @@ def build_structure_for_word_limit(max_words):
     all_structs = load_structures()
     selected = []
     total = 0
+    attempts = 0
+    max_attempts = 500
 
-    while total < max_words - 50 and len(selected) < 100:
+    # Accept slight overflow if total is very close
+    min_words = int(max_words * 0.85)
+
+    while attempts < max_attempts and len(selected) < 100:
         s = random.choice(all_structs)
         sentence_word_count = s[0]
-        if total + sentence_word_count <= max_words:
-            selected.append(s)
-            total += sentence_word_count
+
+        if total + sentence_word_count > max_words:
+            if total < min_words:
+                attempts += 1
+                continue  # Try another sentence — we’re too far below
+            else:
+                break  # Close enough
+        selected.append(s)
+        total += sentence_word_count
+        attempts += 1
+
+    logging.info(f"[STRUCTURE] Built structure with {len(selected)} sentences and {total} words (target: {max_words})")
     return selected
 
 def build_prompt(topic, sentence_structures):
@@ -42,6 +57,8 @@ Requirements:
     """.strip()
 
 def generate_description(topic, length_category='medium', max_words=1300):
+    logging.info(f"[GENERATION] Preparing description for topic: '{topic}' with length: '{length_category}' and max_words: {max_words}")
+
     if length_category == 'custom':
         sentence_structures = build_structure_for_word_limit(max_words)
     else:
@@ -59,6 +76,8 @@ def generate_description(topic, length_category='medium', max_words=1300):
     if approx_tokens > 4096:
         approx_tokens = 4096
 
+    logging.info(f"[OPENAI] Sending request with {len(sentence_structures)} structured sentences")
+
     chat_response = client.chat.completions.create(
         model="gpt-4",
         messages=[
@@ -69,4 +88,5 @@ def generate_description(topic, length_category='medium', max_words=1300):
         max_tokens=approx_tokens
     )
 
+    logging.info("[OPENAI] Response received")
     return chat_response.choices[0].message.content.strip()
